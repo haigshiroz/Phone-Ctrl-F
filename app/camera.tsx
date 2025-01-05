@@ -2,12 +2,14 @@ import { Text, View, Button, TextInput, StyleSheet, Image, TouchableWithoutFeedb
 import { useState, useEffect } from 'react'
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions, CameraCapturedPicture } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
+
 // import Tesseract from 'tesseract.js';
 // import TextRecognition from '@react-native-ml-kit/text-recognition';
 // import TesseractOcr, { LANG_ENGLISH, LEVEL_WORD } from 'react-native-tesseract-ocr';
 // import MlkitOcr from 'react-native-mlkit-ocr'
 // import {VisionCloudTextRecognizerModelType} from '@react-native-firebase/ml-vision';
-import RNFS from 'react-native-fs';
+import * as FileSystem from 'expo-file-system';
 import axios from 'axios'
 
 export default function CameraScreen() {
@@ -15,157 +17,95 @@ export default function CameraScreen() {
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions(); 
   const [photoURI, setPhotoURI] = useState<string>('https://reactnative.dev/img/tiny_logo.png') // No original photo
-  const [photo64, setPhoto64] = useState<string>() // No original photo
   const [cameraRef, setCameraRef] = useState<CameraView | null>(null); // No original camera ref
+
+  const pickImage = async () => {
+    // Ask for gallery permissions
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (permissionResult.granted === false) {
+      console.log('Permission to access gallery is required!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setPhotoURI(result.assets[0].uri);
+
+
+      // Set base64
+      const base64Image = await FileSystem.readAsStringAsync(result.assets[0].uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      }); // CONTRINUE HERE VERIFY THIS IS GOOD 
+
+      // Read picture for text
+      readPicture(base64Image);
+    }
+  };
 
   const takePicture = async () => {
     if (cameraRef) {
       const photo = await cameraRef.takePictureAsync();
       if (photo) {
-          setPhotoURI(photo.uri);
-          setPhoto64(photo.base64);
-          console.log(photo); // Displays the captured photo details
-          readPicture();
+        console.log("Picture taken!");
+
+        // Set URI
+        // setPhotoURI(photo.uri);
+
+        try {
+          // Set base64
+          const base64Image = await FileSystem.readAsStringAsync(photo.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+
+          // Displays the captured photo details
+          console.log(photo); 
+
+          // Read picture for text
+          readPicture(base64Image);
+        } catch (err) {
+          console.log("Error getting base64: ", err);
+        }
       }
+    } else {
+      console.log("Picture failed...");
     }
   };
 
-  const readPicture = async () => {
+  const readPicture = async (base64Image: string) => {
     console.log("Reading...");
 
-    // Tesseract.recognize(
-    //     photoURI,
-    //     'eng',
-    //     {
-    //         logger: (m) => console.log(m),
-    //     }
-    // )
-    // .then(({ data: { text } }) => {
-    //     console.log("Text...");
-    //     console.log("Text:", text);
-    // })
-    // .catch((err) => {
-    //     console.error('Error during OCR:', err);
-    // });
-
-
-
-
-    // try {
-    //     const result = await TextRecognition.recognize(photoURI)
-    //     console.log('Recognized text:', result.text);
-    // } catch (err: any) {
-    //     console.log(err);
-    // }
-
-
-
-    // try {
-    //   const tessOptions = { level: LEVEL_WORD }; // Recognize words
-    //   const recognizedText = await TesseractOcr.recognizeTokens(photoURI, LANG_ENGLISH, tessOptions);
-    //   console.log(recognizedText);
-    // } catch (err) {
-    //   console.log(err);
-    // }
-
-    // try {
-    //   const recognizedText = await MlkitOcr.detectFromFile(photoURI);
-    //   console.log(recognizedText);
-    // } catch (err) {
-    //   console.log(err);
-    // }
-
-    // try {
-    //   const recognizedText = await FirebaseMLVision.apply()
-    //   console.log(recognizedText);
-    // } catch (err) {
-    //   console.log(err);
-    // }
-
-    // try {
-    //   // const base64Image = await RNFS.readFile(photoURI, 'base64');
-    //   const apiKey = '0a94851b7f7815f0436237ba3ee6230ccfc97e0a';
-    //   const apiUrl = `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`;
-
-    //   // https://vision.googleapis.com/v1/images:annotate?key=0a94851b7f7815f0436237ba3ee6230ccfc97e0a
-
-    //   const requestData = {
-    //     requests: [
-    //       {
-    //         image: {
-    //           // content: base64Image,
-    //           content: photoURI,
-    //         },
-    //         features: [
-    //           { 
-    //             type: 'LABEL_DETECTION', 
-    //             maxResults: 5 
-    //           },
-    //         ],
-    //       },
-    //     ],
-    //   };
-
-    //   // const apiResponse = await axios.post(apiUrl, requestData);
-    //   const apiResponse = await axios.post(
-    //     apiUrl,
-    //     requestData,
-    //     {
-    //       headers: {
-    //         'Content-Type': 'application/json',
-    //       },
-    //     }
-    //   );
-
-    //   const data = apiResponse.data.responses[0].fullTextAnnotation.text;
-    //   console.log(data)
-
-    // } catch (err) {
-    //   console.log(err);
-    // }
-    
     try {
-      // const formData = new FormData();
-      // formData.append('image', {
-      //   uri: photoURI,
-      //   type: 'image/jpeg',
-      //   name: 'temp_poho.jpeg',
-      // });
+      const data = {
+        data: base64Image,
+      }
 
-      // console.log("1");
-
-      // const response = await axios.post('https://hshiroz.pythonanywhere.com/', formData, {
+      // const response = await axios.post('https://hshiroz.pythonanywhere.com/', data, {
       //   headers: {
       //     'Content-Type': 'multipart/form-data',
       //   },
       // });
 
+      const response = await axios.post('https://hshiroz.pythonanywhere.com/', data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-    // Send the image using Axios
-    // const data = {
-    //   name: "image",
-    //   image: photo64, // Send the base64 string as part of the payload
-    //   mime_type: 'image/jpeg', // Optionally include the MIME type
-    // }
+      console.log(response.data);
+      console.log("^ Response ");
+      // console.log("Setting new 64");
+      // TODO remove
+      // setPhotoURI('https://letsenhance.io/static/8f5e523ee6b2479e26ecc91b9c25261e/1015f/MainAfter.jpg')
+      console.log("Done");
 
-    const base64Image = await RNFS.readFile(photoURI, 'base64');
-    const data = {
-      data: base64Image,
-    }
-
-    // const response = await axios.post('https://hshiroz.pythonanywhere.com/', data, {
-    //   headers: {
-    //     'Content-Type': 'multipart/form-data',
-    //   },
-    // });
-
-    const response = await axios.post('https://hshiroz.pythonanywhere.com/', data, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-      console.log(response.data );
+      // console.log(response.data );
 
       // 192.168.1.218  Windows IP
       // http://127.0.0.1:5000 Flask IP
@@ -211,7 +151,7 @@ export default function CameraScreen() {
                     style={styles.input} />
 
                 <Pressable 
-                    onPress={takePicture}
+                    onPress={pickImage}
                     style={styles.button} >
                     <Text> Take Photo </Text>
                 </Pressable>
@@ -247,7 +187,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   camera: {
-    flex: 2,
+    flex: 0,
     margin: 10,
   },
   image: {
