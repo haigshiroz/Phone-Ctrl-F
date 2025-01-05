@@ -17,12 +17,6 @@ export default function RootLayout() {
           title: 'Home',
         }}
       />
-      <Tabs.Screen
-        name="camera"
-        options={{
-          title: 'Camera',
-        }}
-      />
     </Tabs>
   );
 }
