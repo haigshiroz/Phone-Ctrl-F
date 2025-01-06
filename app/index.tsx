@@ -1,4 +1,4 @@
-import { Text, View, Button, TextInput, StyleSheet, Image, TouchableWithoutFeedback, Keyboard, Pressable } from "react-native";
+import { Text, View, Button, TextInput, StyleSheet, Image, TouchableWithoutFeedback, Keyboard, Pressable, ImageBackground } from "react-native";
 import { useState, useEffect } from 'react'
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions, CameraCapturedPicture } from 'expo-camera';
@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 // import {VisionCloudTextRecognizerModelType} from '@react-native-firebase/ml-vision';
 import * as FileSystem from 'expo-file-system';
 import axios from 'axios'
+import * as ImageManipulator from 'expo-image-manipulator';
 
 export default function CameraScreen() {
   const [ctrlFText, setCtrlFText] = useState('');
@@ -19,63 +20,141 @@ export default function CameraScreen() {
   const [photoURI, setPhotoURI] = useState<string>('https://reactnative.dev/img/tiny_logo.png') // No original photo
   const [cameraRef, setCameraRef] = useState<CameraView | null>(null); // No original camera ref
 
+  const [top, setTop] = useState();
+  const [left, setLeft] = useState();
+  const [width, setWidth] = useState();
+  const [height, setHeight] = useState();
+
+  const [originalDim, setOriginalDim] = useState({width: 0, height: 0})
+  const [newDim, setNewDim] = useState({width: 0, height: 0})
+
+  useEffect(() => {
+    // Fetch original dimensions of the image
+    Image.getSize(
+      photoURI,
+      (width, height) => {
+        setOriginalDim({ width, height });
+        console.log("Old Dimensions: " + width + ", " + height);
+      },
+      (error) => {
+        console.error('Error fetching image dimensions:', error);
+      }
+    );
+  }, [photoURI]);
+
+
   const pickImage = async () => {
     // Ask for gallery permissions
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (permissionResult.granted === false) {
+    const imagePermissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (imagePermissionResult.granted === false) {
       console.log('Permission to access gallery is required!');
       return;
     }
 
+    // Display image picker
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes:  ['images'],
       allowsMultipleSelection: false,
+      // allowsEditing: true, // Needs to be enabled 
+      // aspect: [4, 3],
       quality: 1,
     });
 
+    // Process image
     if (!result.canceled) {
-      setPhotoURI(result.assets[0].uri);
+      // Convert to png
+      const uri = result.assets[0].uri;
+      const png = await ImageManipulator.manipulateAsync(
+        uri,
+        [],
+        { compress: 1, format: ImageManipulator.SaveFormat.PNG }
+      );
+      const png_uri = png.uri
 
+      // Display image
+      setPhotoURI(png_uri);
 
-      // Set base64
-      const base64Image = await FileSystem.readAsStringAsync(result.assets[0].uri, {
+      // Get base64 and read text from the image
+      const base64Image = await FileSystem.readAsStringAsync(png_uri, {
         encoding: FileSystem.EncodingType.Base64,
-      }); // CONTRINUE HERE VERIFY THIS IS GOOD 
-
+      });
       // Read picture for text
       readPicture(base64Image);
     }
   };
 
   const takePicture = async () => {
-    if (cameraRef) {
-      const photo = await cameraRef.takePictureAsync();
-      if (photo) {
-        console.log("Picture taken!");
-
-        // Set URI
-        // setPhotoURI(photo.uri);
-
-        try {
-          // Set base64
-          const base64Image = await FileSystem.readAsStringAsync(photo.uri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-
-          // Displays the captured photo details
-          console.log(photo); 
-
-          // Read picture for text
-          readPicture(base64Image);
-        } catch (err) {
-          console.log("Error getting base64: ", err);
-        }
-      }
-    } else {
-      console.log("Picture failed...");
+    // Ask for camera permissions
+    const cameraPermissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (cameraPermissionResult.granted === false) {
+      console.log('Permission to access camera is required!');
+      return;
     }
-  };
+
+    // Display camera
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes:  ['images'],
+      // allowsEditing: true,
+      // aspect: [4, 3],
+      quality: 1,
+    });
+
+    // Process image
+    if (!result.canceled) {
+      // Convert to png
+      const uri = result.assets[0].uri;
+      const png = await ImageManipulator.manipulateAsync(
+        uri,
+        [],
+        { compress: 1, format: ImageManipulator.SaveFormat.PNG }
+      );
+      const png_uri = png.uri
+
+      // Display image
+      setPhotoURI(png_uri);
+
+      // Get base64 and read text from the image
+      const base64Image = await FileSystem.readAsStringAsync(png_uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      // Read picture for text
+      readPicture(base64Image);
+    }
+  }
+
+
+
+  // const takePicture = async () => {
+  //   if (cameraRef) {
+  //     const photo = await cameraRef.takePictureAsync();
+  //     if (photo) {
+  //       console.log("Picture taken!");
+
+  //       // Set URI
+  //       // setPhotoURI(photo.uri);
+
+  //       try {
+  //         // Set base64
+  //         const base64Image = await FileSystem.readAsStringAsync(photo.uri, {
+  //           encoding: FileSystem.EncodingType.Base64,
+  //         });
+
+  //         // Displays the captured photo details
+  //         console.log(photo); 
+
+  //         // Read picture for text
+  //         readPicture(base64Image);
+  //       } catch (err) {
+  //         console.log("Error getting base64: ", err);
+  //       }
+  //     }
+  //   } else {
+  //     console.log("Picture failed...");
+  //   }
+  // };
+
+  const scaleX = newDim.width / originalDim.width;
+  const scaleY = newDim.height / originalDim.height;
 
   const readPicture = async (base64Image: string) => {
     console.log("Reading...");
@@ -97,14 +176,25 @@ export default function CameraScreen() {
         },
       });
 
-      console.log(response.data);
+      const words = response.data
+      console.log(words);
       console.log("^ Response ");
-      // console.log("Setting new 64");
-      // TODO remove
-      // setPhotoURI('https://letsenhance.io/static/8f5e523ee6b2479e26ecc91b9c25261e/1015f/MainAfter.jpg')
-      console.log("Done");
 
-      // console.log(response.data );
+      console.log(ctrlFText);
+      const ind_of_text = words["text"].indexOf(ctrlFText);
+      console.log("Index of Text: " + ind_of_text);
+      const left = words["left"][ind_of_text];
+      const top = words["top"][ind_of_text];
+      const width = words["width"][ind_of_text];
+      const height = words["height"][ind_of_text];
+      console.log("Left: " + left + ", Top: " + top);
+
+      setLeft(left);
+      setTop(top);
+      setWidth(width);
+      setHeight(height);
+
+
 
       // 192.168.1.218  Windows IP
       // http://127.0.0.1:5000 Flask IP
@@ -152,6 +242,12 @@ export default function CameraScreen() {
                 <Pressable 
                     onPress={pickImage}
                     style={styles.button} >
+                    <Text> Pick Image </Text>
+                </Pressable>
+
+                <Pressable 
+                    onPress={takePicture}
+                    style={styles.button} >
                     <Text> Take Photo </Text>
                 </Pressable>
                 
@@ -162,7 +258,25 @@ export default function CameraScreen() {
                     facing={facing}
                     ref={(ref) => setCameraRef(ref)} />
 
-                <Image source={{ uri: photoURI }} style={styles.image} />
+                <ImageBackground 
+                  source={{ uri: photoURI }} 
+                  style={styles.image}
+                  resizeMode="contain" 
+                  onLayout={(event) => {
+                    const {width, height} = event.nativeEvent.layout;
+                    setNewDim({width, height});
+                    console.log("New: " + width + ", " + height);
+                  }}>
+                    <View style={[
+                      styles.box,
+                      {
+                        top: top * scaleY,
+                        left: left * scaleX,
+                        width: width * scaleX,
+                        height: height * scaleY,
+                      },
+                    ]}/>
+                </ImageBackground>
 
             </SafeAreaView>
         </SafeAreaProvider>
@@ -202,5 +316,11 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 10,
     margin: 10,
+  },
+  box: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: 'yellow', // Color of the box border
+    backgroundColor: 'rgba(255, 255, 0, 0.2)', // Optional: translucent fill color
   },
 });
