@@ -14,16 +14,20 @@ import axios from 'axios'
 import * as ImageManipulator from 'expo-image-manipulator';
 
 export default function CameraScreen() {
-  const [ctrlFText, setCtrlFText] = useState('');
-  const [facing, setFacing] = useState<CameraType>('back');
+  const [ctrlFText, setCtrlFText] = useState<string>('');
   const [permission, requestPermission] = useCameraPermissions(); 
   const [photoURI, setPhotoURI] = useState<string>('https://reactnative.dev/img/tiny_logo.png') // No original photo
-  const [cameraRef, setCameraRef] = useState<CameraView | null>(null); // No original camera ref
+  const [photo64, setPhoto64] = useState<string>('') // No original photo
+  const [scanResult, setScanResult] = useState<any>()
 
   const [top, setTop] = useState();
   const [left, setLeft] = useState();
   const [width, setWidth] = useState();
   const [height, setHeight] = useState();
+
+  const [loading, setLoading] = useState<Boolean>(false);
+  const [showHighlight, setShowHighlight] = useState<Boolean>(false);
+
 
   const [originalDim, setOriginalDim] = useState({width: 0, height: 0})
   const [newDim, setNewDim] = useState({width: 0, height: 0})
@@ -78,6 +82,8 @@ export default function CameraScreen() {
       const base64Image = await FileSystem.readAsStringAsync(png_uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
+      setPhoto64(base64Image);
+
       // Read picture for text
       readPicture(base64Image);
     }
@@ -158,6 +164,7 @@ export default function CameraScreen() {
 
   const readPicture = async (base64Image: string) => {
     console.log("Reading...");
+    setLoading(true);
 
     try {
       const data = {
@@ -176,23 +183,27 @@ export default function CameraScreen() {
         },
       });
 
-      const words = response.data
-      console.log(words);
+      const text_data = response.data
+      console.log(text_data);
+      setScanResult(text_data)
       console.log("^ Response ");
 
-      console.log(ctrlFText);
-      const ind_of_text = words["text"].indexOf(ctrlFText);
-      console.log("Index of Text: " + ind_of_text);
-      const left = words["left"][ind_of_text];
-      const top = words["top"][ind_of_text];
-      const width = words["width"][ind_of_text];
-      const height = words["height"][ind_of_text];
-      console.log("Left: " + left + ", Top: " + top);
+      findWord(text_data)
 
-      setLeft(left);
-      setTop(top);
-      setWidth(width);
-      setHeight(height);
+      // console.log(ctrlFText);
+      // const ind_of_text = words["text"].indexOf(ctrlFText);
+      // console.log("Index of Text: " + ind_of_text);
+      // const left = words["left"][ind_of_text];
+      // const top = words["top"][ind_of_text];
+      // const width = words["width"][ind_of_text];
+      // const height = words["height"][ind_of_text];
+      // console.log("Left: " + left + ", Top: " + top);
+
+      // setLeft(left);
+      // setTop(top);
+      // setWidth(width);
+      // setHeight(height);
+      // setLoading(false);
 
 
 
@@ -205,8 +216,42 @@ export default function CameraScreen() {
     } catch (err) {
       console.log(err);
     }
-    
   };
+  
+
+  const findWord = async (scannedWordsField?: {field: string, values: string[]}) => {
+    Keyboard.dismiss()
+    
+    if (ctrlFText === "") {
+      setShowHighlight(false);
+      setLoading(false);
+      return;
+    }
+    
+    const scannedWords = scannedWordsField || scanResult // Use setState if argument not passed
+
+    console.log("Attempting to find " + ctrlFText + "...");
+    const ind_of_text = scannedWords["text"].indexOf(ctrlFText);
+    console.log("Index of Text: " + ind_of_text);
+
+    if (ind_of_text < 0) {
+      console.log("Given text, " + ctrlFText + " not found");
+      setShowHighlight(false);
+    } else {
+      setShowHighlight(true);
+      const left = scannedWords["left"][ind_of_text];
+      const top = scannedWords["top"][ind_of_text];
+      const width = scannedWords["width"][ind_of_text];
+      const height = scannedWords["height"][ind_of_text];
+      console.log("Left: " + left + ", Top: " + top);
+  
+      setLeft(left);
+      setTop(top);
+      setWidth(width);
+      setHeight(height);
+    }
+    setLoading(false);
+  }
 
   // TODO check permisions
   if (!permission) {
@@ -239,6 +284,8 @@ export default function CameraScreen() {
                     onChangeText={setCtrlFText}
                     style={styles.input} />
 
+                {ctrlFText == "" ? <Text style={styles.title}>Please input text.</Text> : <Text style={styles.title}>Searching for {ctrlFText}.</Text>}
+                
                 <Pressable 
                     onPress={pickImage}
                     style={styles.button} >
@@ -250,32 +297,55 @@ export default function CameraScreen() {
                     style={styles.button} >
                     <Text> Take Photo </Text>
                 </Pressable>
+
+                <Pressable 
+                    onPress={() => findWord()}
+                    style={styles.button} >
+                    <Text> Rescan Photo </Text>
+                </Pressable>
                 
-                {ctrlFText == "" ? <Text style={styles.title}>Please input text.</Text> : <Text style={styles.title}>Searching for {ctrlFText}.</Text>}
 
                 <CameraView 
                     style={styles.camera} 
-                    facing={facing}
-                    ref={(ref) => setCameraRef(ref)} />
+                    facing={ImagePicker.CameraType.back} />
+
 
                 <ImageBackground 
                   source={{ uri: photoURI }} 
-                  style={styles.image}
+                  style={[styles.image, { aspectRatio: originalDim.width / originalDim.height }]}
                   resizeMode="contain" 
                   onLayout={(event) => {
                     const {width, height} = event.nativeEvent.layout;
                     setNewDim({width, height});
                     console.log("New: " + width + ", " + height);
                   }}>
-                    <View style={[
-                      styles.box,
-                      {
-                        top: top * scaleY,
-                        left: left * scaleX,
-                        width: width * scaleX,
-                        height: height * scaleY,
-                      },
-                    ]}/>
+
+                    {/* Display either loading or highlighted text */}
+                    {loading && (
+                      <View style={[
+                        styles.loading,
+                        {
+                          top: 0,
+                          left: 0,
+                          width: newDim.width,
+                          height: newDim.height,
+                        },
+                      ]}>
+                        <Text style={styles.loading_text}> Loading... </Text>
+                      </View>
+                    )}
+                    
+                    {showHighlight && (
+                      <View style={[
+                        styles.highlighter,
+                        {
+                          top: top * scaleY,
+                          left: left * scaleX,
+                          width: width * scaleX,
+                          height: height * scaleY,
+                        },
+                      ]}/>
+                    )}
                 </ImageBackground>
 
             </SafeAreaView>
@@ -306,8 +376,12 @@ const styles = StyleSheet.create({
   },
   image: {
     flex: 2,
-    width: '100%',
-    resizeMode: 'cover',
+    // justifyContent: "center",
+    alignItems: "center",
+    // width: '100%',
+    // resizeMode: 'cover',
+    // borderBlockColor: 'red', // TODO
+    // borderWidth: 10,
   },
   button: {
     // backgroundColor: "#f194ff",
@@ -317,10 +391,21 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     margin: 10,
   },
-  box: {
+  highlighter: {
     position: 'absolute',
     borderWidth: 1,
     borderColor: 'yellow', // Color of the box border
     backgroundColor: 'rgba(255, 255, 0, 0.2)', // Optional: translucent fill color
   },
+  loading: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: 'gray', // Color of the box border
+    backgroundColor: 'rgba(255, 255, 255, 0.1)', // Optional: translucent fill color
+  },
+  loading_text: {
+    textAlign: 'center',
+    color: 'white',
+    justifyContent: 'center',
+  }
 });
