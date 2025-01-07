@@ -46,6 +46,11 @@ export default function CameraScreen() {
     );
   }, [photoURI]);
 
+  const inputTextChanged = (input: string) => {
+    setCtrlFText(input); 
+    console.log(input);
+    findWord(undefined, input); 
+  };
 
   const pickImage = async () => {
     // Ask for gallery permissions
@@ -219,9 +224,7 @@ export default function CameraScreen() {
   };
   
 
-  const findWord = async (scannedWordsField?: {field: string, values: string[]}) => {
-    Keyboard.dismiss()
-    
+  const findWord = async (scannedWordsField?: {field: string, values: string[]}, word?: string) => {    
     if (ctrlFText === "") {
       setShowHighlight(false);
       setLoading(false);
@@ -229,13 +232,14 @@ export default function CameraScreen() {
     }
     
     const scannedWords = scannedWordsField || scanResult // Use setState if argument not passed
+    const word_to_search = word || ctrlFText
 
     console.log("Attempting to find " + ctrlFText + "...");
-    const ind_of_text = scannedWords["text"].indexOf(ctrlFText);
+    const ind_of_text = scannedWords["text"].indexOf(word_to_search);
     console.log("Index of Text: " + ind_of_text);
 
     if (ind_of_text < 0) {
-      console.log("Given text, " + ctrlFText + " not found");
+      console.log("Given text, " + word_to_search + " not found");
       setShowHighlight(false);
     } else {
       setShowHighlight(true);
@@ -281,35 +285,11 @@ export default function CameraScreen() {
                 <TextInput 
                     placeholder="Enter word you'd like to search" 
                     value={ctrlFText}
-                    onChangeText={setCtrlFText}
+                    onChangeText={inputTextChanged}
                     style={styles.input} />
 
                 {ctrlFText == "" ? <Text style={styles.title}>Please input text.</Text> : <Text style={styles.title}>Searching for {ctrlFText}.</Text>}
                 
-                <Pressable 
-                    onPress={pickImage}
-                    style={styles.button} >
-                    <Text> Pick Image </Text>
-                </Pressable>
-
-                <Pressable 
-                    onPress={takePicture}
-                    style={styles.button} >
-                    <Text> Take Photo </Text>
-                </Pressable>
-
-                <Pressable 
-                    onPress={() => findWord()}
-                    style={styles.button} >
-                    <Text> Rescan Photo </Text>
-                </Pressable>
-                
-
-                <CameraView 
-                    style={styles.camera} 
-                    facing={ImagePicker.CameraType.back} />
-
-
                 <ImageBackground 
                   source={{ uri: photoURI }} 
                   style={[styles.image, { aspectRatio: originalDim.width / originalDim.height }]}
@@ -348,6 +328,23 @@ export default function CameraScreen() {
                     )}
                 </ImageBackground>
 
+
+                <Pressable 
+                    onPress={pickImage}
+                    style={styles.button} >
+                    <Text> Pick Image </Text>
+                </Pressable>
+
+                <Pressable 
+                    onPress={takePicture}
+                    style={styles.button} >
+                    <Text> Take Photo </Text>
+                </Pressable>
+
+                <CameraView 
+                    style={styles.camera} 
+                    facing={ImagePicker.CameraType.back} />
+
             </SafeAreaView>
         </SafeAreaProvider>
     </TouchableWithoutFeedback>
@@ -376,12 +373,14 @@ const styles = StyleSheet.create({
   },
   image: {
     flex: 2,
-    // justifyContent: "center",
+    justifyContent: "center",
     alignItems: "center",
     // width: '100%',
     // resizeMode: 'cover',
     // borderBlockColor: 'red', // TODO
     // borderWidth: 10,
+    marginLeft:'auto',
+    marginRight:'auto',
   },
   button: {
     // backgroundColor: "#f194ff",
@@ -401,10 +400,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderWidth: 1,
     borderColor: 'gray', // Color of the box border
-    backgroundColor: 'rgba(255, 255, 255, 0.1)', // Optional: translucent fill color
+    backgroundColor: 'rgba(255, 255, 255, 0.4)', // Optional: translucent fill color
   },
   loading_text: {
+    marginTop:'auto',
+    marginBottom:'auto',
     textAlign: 'center',
+    verticalAlign: 'middle',
+    alignContent: 'center',
     color: 'white',
     justifyContent: 'center',
   }
