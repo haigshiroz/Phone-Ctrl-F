@@ -12,6 +12,8 @@ This app was developed on a Windows computer using React Native, Expo, and VS Co
 
 In this environment, only Expo-compatible libraries were used to allow development on iOS using Windows. This additionally ensures functionality on both iOS and Android. However, this also poses major limitations on what resources can be used.
 
+The code for the app can be found in [app/index.tsx](app/index.tsx).
+
 ### Scope and Challenges
 The original vision of Phone Ctrl F was to have a *live* camera feed that would automatically highlight the desired input as the text is found.
 
@@ -31,3 +33,5 @@ Other quality-of-life UI considerations include a clean GUI, intuitive popup dis
 The most exciting feature that this app could present is scanning text live. While this feature is possible (as seen in existing technologies like Google Translate's live translator), there would have to be much more development to bring this to an Expo app. One possibility is using Google Cloud's OCR which has strong prospects.
 
 Due to the way pytesseract returns text data, the app currently cannot find text with multiple words. This feature could be implemented by checking the proximity and rows of each word to be searched in the query to provide multi-word highlighting.
+
+Lastly, since this is my first React Native project, general code improvements can be made including UI structure, separating components, and polishing the uses of functions and states.
