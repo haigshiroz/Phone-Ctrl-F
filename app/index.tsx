@@ -1,8 +1,9 @@
-import { Text, View, Button, TextInput, StyleSheet, Image, TouchableWithoutFeedback, Keyboard, Pressable, ImageBackground } from "react-native";
-import { useState, useEffect } from 'react'
+import { Dimensions, Text, View, Button, TextInput, StyleSheet, Image, TouchableWithoutFeedback, Keyboard, Pressable, ImageBackground, TouchableOpacity  } from "react-native";
+import { useState, useEffect, useRef } from 'react'
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions, CameraCapturedPicture } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import ActionSheet, {ActionSheetRef} from "react-native-actions-sheet";
 
 // import Tesseract from 'tesseract.js';
 // import TextRecognition from '@react-native-ml-kit/text-recognition';
@@ -13,17 +14,20 @@ import * as FileSystem from 'expo-file-system';
 import axios from 'axios'
 import * as ImageManipulator from 'expo-image-manipulator';
 
+const { width, height } = Dimensions.get('window'); // Get screen dimensions
+
 export default function CameraScreen() {
   const [ctrlFText, setCtrlFText] = useState<string>('');
   const [permission, requestPermission] = useCameraPermissions(); 
   const [photoURI, setPhotoURI] = useState<string>('https://reactnative.dev/img/tiny_logo.png') // No original photo
   const [photo64, setPhoto64] = useState<string>('') // No original photo
   const [scanResult, setScanResult] = useState<any>()
+  const actionSheetRef = useRef<ActionSheetRef>();
 
   const [top, setTop] = useState();
   const [left, setLeft] = useState();
-  const [width, setWidth] = useState();
-  const [height, setHeight] = useState();
+  const [imageWidth, setImageWidth] = useState();
+  const [imageHeight, setImageHeight] = useState();
 
   const [loading, setLoading] = useState<Boolean>(false);
   const [showHighlight, setShowHighlight] = useState<Boolean>(false);
@@ -31,6 +35,7 @@ export default function CameraScreen() {
 
   const [originalDim, setOriginalDim] = useState({width: 0, height: 0})
   const [newDim, setNewDim] = useState({width: 0, height: 0})
+
 
   useEffect(() => {
     // Fetch original dimensions of the image
@@ -50,6 +55,14 @@ export default function CameraScreen() {
     setCtrlFText(input); 
     console.log(input);
     findWord(undefined, input); 
+  };
+
+  const openActionSheet = () => {
+    actionSheetRef.current?.setModalVisible(true);
+  };
+
+  const closeActionSheet = () => {
+    actionSheetRef.current?.setModalVisible(false);
   };
 
   const pickImage = async () => {
@@ -168,6 +181,8 @@ export default function CameraScreen() {
   const scaleY = newDim.height / originalDim.height;
 
   const readPicture = async (base64Image: string) => {
+    closeActionSheet();
+
     console.log("Reading...");
     setLoading(true);
 
@@ -224,7 +239,7 @@ export default function CameraScreen() {
   };
   
 
-  const findWord = async (scannedWordsField?: {field: string, values: string[]}, word?: string) => {    
+  const findWord = async (scannedWordsField?: {field: string, values: string[]}, word?: string) => {        
     if (ctrlFText === "") {
       setShowHighlight(false);
       setLoading(false);
@@ -251,8 +266,8 @@ export default function CameraScreen() {
   
       setLeft(left);
       setTop(top);
-      setWidth(width);
-      setHeight(height);
+      setImageWidth(width);
+      setImageHeight(height);
     }
     setLoading(false);
   }
@@ -290,60 +305,72 @@ export default function CameraScreen() {
 
                 {ctrlFText == "" ? <Text style={styles.title}>Please input text.</Text> : <Text style={styles.title}>Searching for {ctrlFText}.</Text>}
                 
-                <ImageBackground 
-                  source={{ uri: photoURI }} 
-                  style={[styles.image, { aspectRatio: originalDim.width / originalDim.height }]}
-                  resizeMode="contain" 
-                  onLayout={(event) => {
-                    const {width, height} = event.nativeEvent.layout;
-                    setNewDim({width, height});
-                    console.log("New: " + width + ", " + height);
-                  }}>
+                <View
+                  style={styles.imageContainer}>
+                  <ImageBackground 
+                    source={{ uri: photoURI }} 
+                    style={[styles.image, { aspectRatio: originalDim.width / originalDim.height }]}
+                    resizeMode="contain" 
+                    onLayout={(event) => {
+                      const {width, height} = event.nativeEvent.layout;
+                      setNewDim({width, height});
+                      console.log("New: " + width + ", " + height);
+                    }}>
 
-                    {/* Display either loading or highlighted text */}
-                    {loading && (
-                      <View style={[
-                        styles.loading,
-                        {
-                          top: 0,
-                          left: 0,
-                          width: newDim.width,
-                          height: newDim.height,
-                        },
-                      ]}>
-                        <Text style={styles.loading_text}> Loading... </Text>
-                      </View>
-                    )}
-                    
-                    {showHighlight && (
-                      <View style={[
-                        styles.highlighter,
-                        {
-                          top: top * scaleY,
-                          left: left * scaleX,
-                          width: width * scaleX,
-                          height: height * scaleY,
-                        },
-                      ]}/>
-                    )}
-                </ImageBackground>
-
-
-                <Pressable 
-                    onPress={pickImage}
-                    style={styles.button} >
-                    <Text> Pick Image </Text>
-                </Pressable>
+                      {/* Display either loading or highlighted text */}
+                      {loading && (
+                        <View style={[
+                          styles.loading,
+                          {
+                            top: 0,
+                            left: 0,
+                            width: newDim.width,
+                            height: newDim.height,
+                          },
+                        ]}>
+                          <Text style={styles.loading_text}> Loading... </Text>
+                        </View>
+                      )}
+                      
+                      {showHighlight && (
+                        <View style={[
+                          styles.highlighter,
+                          {
+                            top: top * scaleY,
+                            left: left * scaleX,
+                            width: imageWidth * scaleX,
+                            height: imageHeight * scaleY,
+                          },
+                        ]}/>
+                      )}
+                  </ImageBackground>
+                </View>
 
                 <Pressable 
-                    onPress={takePicture}
+                    onPress={openActionSheet}
                     style={styles.button} >
-                    <Text> Take Photo </Text>
+                    <Text> Insert Image </Text>
                 </Pressable>
 
-                <CameraView 
-                    style={styles.camera} 
-                    facing={ImagePicker.CameraType.back} />
+                <ActionSheet 
+                  ref={actionSheetRef}
+                  gestureEnabled>
+                    <View style={{
+                      height: 200,
+                    }}>
+                      <Pressable 
+                          onPress={pickImage}
+                          style={styles.button} >
+                          <Text> Pick Image </Text>
+                      </Pressable>
+
+                      <Pressable 
+                          onPress={takePicture}
+                          style={styles.button} >
+                          <Text> Take Photo </Text>
+                      </Pressable>
+                    </View>
+                </ActionSheet>
 
             </SafeAreaView>
         </SafeAreaProvider>
@@ -362,7 +389,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
+    alignContent: 'center',
     marginHorizontal: 16,
+    maxHeight: height,
+    maxWidth: width,
+  },
+  imageContainer: {
+    flex: 1,
   },
   title: {
     textAlign: 'center',
@@ -372,13 +405,11 @@ const styles = StyleSheet.create({
     margin: 10,
   },
   image: {
-    flex: 2,
+    // flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    // width: '100%',
-    // resizeMode: 'cover',
-    // borderBlockColor: 'red', // TODO
-    // borderWidth: 10,
+    marginTop: 'auto',
+    marginBottom: 'auto',
     marginLeft:'auto',
     marginRight:'auto',
   },
@@ -394,13 +425,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderWidth: 1,
     borderColor: 'yellow', // Color of the box border
-    backgroundColor: 'rgba(255, 255, 0, 0.2)', // Optional: translucent fill color
+    backgroundColor: 'rgba(255, 255, 0, 0.2)',
   },
   loading: {
     position: 'absolute',
     borderWidth: 1,
     borderColor: 'gray', // Color of the box border
-    backgroundColor: 'rgba(255, 255, 255, 0.4)', // Optional: translucent fill color
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
   },
   loading_text: {
     marginTop:'auto',
