@@ -1,50 +1,33 @@
-# Welcome to your Expo app 👋
+# Introduction
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+[GIF]
 
-## Get started
+### Purpose and Usage
+The goal of Phone Ctrl F is to search and highlight text from your phone's camera or image library for easy spotting. Whether that be finding an item on a receipt, an allergy in an ingredients list, or a name in a list, this app will help you easily skip the skimming.
 
-1. Install dependencies
+# Development
 
-   ```bash
-   npm install
-   ```
+### Environment: React Native and Expo
+This app was developed on a Windows computer using React Native, Expo, and VS Code. The app was tested on an iPhone using the Expo Go app.
 
-2. Start the app
+In this environment, only Expo-compatible libraries were used to allow development on iOS using Windows. This additionally ensures functionality on both iOS and Android. However, this also poses major limitations on what resources can be used.
 
-   ```bash
-    npx expo start
-   ```
+### Scope and Challenges
+The original vision of Phone Ctrl F was to have a *live* camera feed that would automatically highlight the desired input as the text is found.
 
-In the output, you'll find options to open the app in a
+The first limitation is image quality. Using expo-camera severely reduced the quality of the picture taken which made the text from the picture unreadable by any OCR. Thus, our option was reduced to uploading a picture of higher quality, either by taking one on the spot or picking one from the device's image library.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+The second limitation was finding a compatible OCR library. Any library I attempted to use in React Native produced some error, the most prominent being incompatibility with Expo. As a result, I opted to use [pytesseract](https://pypi.org/project/pytesseract/) (Python-Tesseract) and hosted a server on [PythonAnywhere](https://www.pythonanywhere.com/). From here, I used Axios, an HTTP client, to send over the image data to the server and receive all scanned text in the image.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### User Interface
 
-## Get a fresh project
 
-When you're ready, run:
+To display the highlighted text, the coordinates of the top left corner of the text are provided along with the width and the height of the text. These values are scaled from the size of the original image to the size displayed in the app and are overlayed on top of the image.
 
-```bash
-npm run reset-project
-```
+Other quality-of-life UI considerations include a clean GUI, intuitive popup dismissals and user feedback. 
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Future Development  
 
-## Learn more
+The most exciting feature that this app could present is scanning text live. While this feature is possible (as seen in existing technologies like Google Translate's live translator), there would have to be much more development to bring this to an Expo app. One possibility is using Google Cloud's OCR which has strong prospects.
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Due to the way pytesseract returns text data, the app currently cannot find text with multiple words. This feature could be implemented by checking the proximity and rows of each word to be searched in the query to provide multi-word highlighting.
