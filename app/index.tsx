@@ -1,9 +1,10 @@
-import { Dimensions, Text, View, Button, TextInput, StyleSheet, Image, TouchableWithoutFeedback, Keyboard, Pressable, ImageBackground, TouchableOpacity  } from "react-native";
+import { Dimensions, Switch, Text, View, Button, TextInput, StyleSheet, Image, TouchableWithoutFeedback, Keyboard, Pressable, ImageBackground, TouchableOpacity  } from "react-native";
 import { useState, useEffect, useRef } from 'react'
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions, CameraCapturedPicture } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import ActionSheet, {ActionSheetRef} from "react-native-actions-sheet";
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 // import Tesseract from 'tesseract.js';
 // import TextRecognition from '@react-native-ml-kit/text-recognition';
@@ -18,16 +19,25 @@ const { width, height } = Dimensions.get('window'); // Get screen dimensions
 
 export default function CameraScreen() {
   const [ctrlFText, setCtrlFText] = useState<string>('');
+  const [caseSensitive, setCaseSensitive] = useState<boolean>(false);
+  const toggleSwitch = () => {
+    setCaseSensitive(previousState => !previousState);
+    findWord();
+  };
+  
   const [permission, requestPermission] = useCameraPermissions(); 
   const [photoURI, setPhotoURI] = useState<string>('https://reactnative.dev/img/tiny_logo.png') // No original photo
   const [photo64, setPhoto64] = useState<string>('') // No original photo
   const [scanResult, setScanResult] = useState<any>()
-  const actionSheetRef = useRef<ActionSheetRef>();
+  const imageActionSheetRef = useRef<ActionSheetRef>();
+  const settingsActionSheetRef = useRef<ActionSheetRef>();
+
 
   const [top, setTop] = useState();
   const [left, setLeft] = useState();
   const [imageWidth, setImageWidth] = useState();
   const [imageHeight, setImageHeight] = useState();
+  const [boxes, setBoxes] = useState<any[]>();
 
   const [loading, setLoading] = useState<Boolean>(false);
   const [showHighlight, setShowHighlight] = useState<Boolean>(false);
@@ -57,12 +67,20 @@ export default function CameraScreen() {
     findWord(undefined, input); 
   };
 
-  const openActionSheet = () => {
-    actionSheetRef.current?.setModalVisible(true);
+  const openImageActionSheet = () => {
+    imageActionSheetRef.current?.setModalVisible(true);
   };
 
-  const closeActionSheet = () => {
-    actionSheetRef.current?.setModalVisible(false);
+  const closeImageActionSheet = () => {
+    imageActionSheetRef.current?.setModalVisible(false);
+  };
+
+  const openSettingsActionSheet = () => {
+    settingsActionSheetRef.current?.setModalVisible(true);
+  };
+
+  const closeSettingsActionSheet = () => {
+    settingsActionSheetRef.current?.setModalVisible(false);
   };
 
   const pickImage = async () => {
@@ -118,8 +136,6 @@ export default function CameraScreen() {
     // Display camera
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes:  ['images'],
-      // allowsEditing: true,
-      // aspect: [4, 3],
       quality: 1,
     });
 
@@ -146,42 +162,13 @@ export default function CameraScreen() {
     }
   }
 
-
-
-  // const takePicture = async () => {
-  //   if (cameraRef) {
-  //     const photo = await cameraRef.takePictureAsync();
-  //     if (photo) {
-  //       console.log("Picture taken!");
-
-  //       // Set URI
-  //       // setPhotoURI(photo.uri);
-
-  //       try {
-  //         // Set base64
-  //         const base64Image = await FileSystem.readAsStringAsync(photo.uri, {
-  //           encoding: FileSystem.EncodingType.Base64,
-  //         });
-
-  //         // Displays the captured photo details
-  //         console.log(photo); 
-
-  //         // Read picture for text
-  //         readPicture(base64Image);
-  //       } catch (err) {
-  //         console.log("Error getting base64: ", err);
-  //       }
-  //     }
-  //   } else {
-  //     console.log("Picture failed...");
-  //   }
-  // };
-
   const scaleX = newDim.width / originalDim.width;
   const scaleY = newDim.height / originalDim.height;
 
   const readPicture = async (base64Image: string) => {
-    closeActionSheet();
+    // Close the action sheets if they are in the way
+    closeImageActionSheet();
+    closeSettingsActionSheet(); 
 
     console.log("Reading...");
     setLoading(true);
@@ -190,12 +177,6 @@ export default function CameraScreen() {
       const data = {
         data: base64Image,
       }
-
-      // const response = await axios.post('https://hshiroz.pythonanywhere.com/', data, {
-      //   headers: {
-      //     'Content-Type': 'multipart/form-data',
-      //   },
-      // });
 
       const response = await axios.post('https://hshiroz.pythonanywhere.com/', data, {
         headers: {
@@ -209,29 +190,6 @@ export default function CameraScreen() {
       console.log("^ Response ");
 
       findWord(text_data)
-
-      // console.log(ctrlFText);
-      // const ind_of_text = words["text"].indexOf(ctrlFText);
-      // console.log("Index of Text: " + ind_of_text);
-      // const left = words["left"][ind_of_text];
-      // const top = words["top"][ind_of_text];
-      // const width = words["width"][ind_of_text];
-      // const height = words["height"][ind_of_text];
-      // console.log("Left: " + left + ", Top: " + top);
-
-      // setLeft(left);
-      // setTop(top);
-      // setWidth(width);
-      // setHeight(height);
-      // setLoading(false);
-
-
-
-      // 192.168.1.218  Windows IP
-      // http://127.0.0.1:5000 Flask IP
-      // http://192.168.1.218:5000/api/ocr
-
-      // curl -X POST -F "image=@"C:\Users\shiro\Downloads\testimage.jpg"" https://hshiroz.pythonanywhere.com/
 
     } catch (err) {
       console.log(err);
@@ -249,25 +207,59 @@ export default function CameraScreen() {
     const scannedWords = scannedWordsField || scanResult // Use setState if argument not passed
     const word_to_search = word || ctrlFText
 
-    console.log("Attempting to find " + ctrlFText + "...");
-    const ind_of_text = scannedWords["text"].indexOf(word_to_search);
-    console.log("Index of Text: " + ind_of_text);
+    console.log("Attempting to find " + word_to_search + "...");
 
-    if (ind_of_text < 0) {
+    var indxs_of_text: number[] = [];
+    if (caseSensitive) {
+      scannedWords["text"].forEach((word: string, index: number) => {
+        if (word === word_to_search) {
+          indxs_of_text.push(index);
+        }
+      });
+    } else {
+      scannedWords["text"].forEach((word: string, index: number) => {
+        if (word.toLowerCase() === word_to_search.toLowerCase()) {
+          indxs_of_text.push(index);
+          console.log(index);
+        }
+      });
+    }
+
+    console.log(scannedWords["text"])
+
+    if (indxs_of_text.length === 0) {
       console.log("Given text, " + word_to_search + " not found");
       setShowHighlight(false);
     } else {
+      console.log("Indexes of \"" + word_to_search + "\": " + indxs_of_text);
       setShowHighlight(true);
-      const left = scannedWords["left"][ind_of_text];
-      const top = scannedWords["top"][ind_of_text];
-      const width = scannedWords["width"][ind_of_text];
-      const height = scannedWords["height"][ind_of_text];
-      console.log("Left: " + left + ", Top: " + top);
+      // const left = scannedWords["left"][ind_of_text];
+      // const top = scannedWords["top"][ind_of_text];
+      // const width = scannedWords["width"][ind_of_text];
+      // const height = scannedWords["height"][ind_of_text];
+      // console.log("Left: " + left + ", Top: " + top);
   
-      setLeft(left);
-      setTop(top);
-      setImageWidth(width);
-      setImageHeight(height);
+      // setLeft(left);
+      // setTop(top);
+      // setImageWidth(width);
+      // setImageHeight(height);
+
+      const highlight_boxes: any[] = []
+      indxs_of_text.forEach((index_of_text: number, index: number) => {
+        const highlight_box = { 
+          id: index,
+          left: scannedWords["left"][index_of_text], 
+          top: scannedWords["top"][index_of_text],
+          width: scannedWords["width"][index_of_text],
+          height: scannedWords["height"][index_of_text],
+        }
+
+        highlight_boxes.push(highlight_box);
+      });
+
+      console.log(highlight_boxes);
+
+      setBoxes(highlight_boxes);
     }
     setLoading(false);
   }
@@ -297,11 +289,19 @@ export default function CameraScreen() {
         <SafeAreaProvider>
             <SafeAreaView style={styles.container}>
 
+              <View style={styles.inputSettingsContainer}>
                 <TextInput 
-                    placeholder="Enter word you'd like to search" 
-                    value={ctrlFText}
-                    onChangeText={inputTextChanged}
-                    style={styles.input} />
+                      placeholder="Enter word you'd like to search" 
+                      value={ctrlFText}
+                      onChangeText={inputTextChanged}
+                      style={styles.input} />
+
+                <TouchableOpacity onPress={openSettingsActionSheet} style={styles.settings_icon}>
+                  <Ionicons name="settings-outline" size={24} color="#333" />
+                </TouchableOpacity>
+                
+              </View>
+
 
                 {ctrlFText == "" ? <Text style={styles.title}>Please input text.</Text> : <Text style={styles.title}>Searching for {ctrlFText}.</Text>}
                 
@@ -334,26 +334,39 @@ export default function CameraScreen() {
                       
                       {showHighlight && (
                         <View style={[
-                          styles.highlighter,
+                          styles.highlighterContainer,
                           {
-                            top: top * scaleY,
-                            left: left * scaleX,
-                            width: imageWidth * scaleX,
-                            height: imageHeight * scaleY,
-                          },
-                        ]}/>
+                            top: 0,
+                            left: 0,
+                            width: newDim.width,
+                            height: newDim.height,
+                          }
+                        ]}>
+                          {boxes?.map((box) => (
+                            <View key={box.id} style={[
+                              styles.highlighter,
+                              {
+                                top: box.top * scaleY,
+                                left: box.left * scaleX,
+                                width: box.width * scaleX,
+                                height: box.height * scaleY,
+                              },
+                            ]}/>
+                          ))}
+
+                        </View>
                       )}
                   </ImageBackground>
                 </View>
 
                 <Pressable 
-                    onPress={openActionSheet}
+                    onPress={openImageActionSheet}
                     style={styles.button} >
                     <Text> Insert Image </Text>
                 </Pressable>
 
                 <ActionSheet 
-                  ref={actionSheetRef}
+                  ref={imageActionSheetRef}
                   gestureEnabled>
                     <View style={{
                       height: 200,
@@ -372,6 +385,22 @@ export default function CameraScreen() {
                     </View>
                 </ActionSheet>
 
+                <ActionSheet 
+                  ref={settingsActionSheetRef}
+                  gestureEnabled>
+                    <View style={{
+                      // height: 200,
+                      paddingBottom: 25,
+                    }}>
+                      <View style={styles.inputSettingsContainer}>
+                        <Text style={styles.match_case_text}> Match Case? </Text>
+                        <Switch 
+                          onValueChange={toggleSwitch}
+                           value={caseSensitive}/>
+                      </View>
+                    </View>
+                </ActionSheet>
+
             </SafeAreaView>
         </SafeAreaProvider>
     </TouchableWithoutFeedback>
@@ -380,11 +409,10 @@ export default function CameraScreen() {
 
 const styles = StyleSheet.create({
   input: {
-    padding: 10,
+    flex: 1,
     justifyContent: 'center',
     verticalAlign: 'top',
     borderWidth: 1,
-    marginTop: 10,
   },
   container: {
     flex: 1,
@@ -396,6 +424,15 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     flex: 1,
+  },
+  inputSettingsContainer: {
+    justifyContent: 'space-between',
+    flexDirection: 'row',
+    padding: 10,
+    marginTop: 10,
+  },
+  highlighterContainer: {
+    position: 'absolute',
   },
   title: {
     textAlign: 'center',
@@ -440,6 +477,19 @@ const styles = StyleSheet.create({
     verticalAlign: 'middle',
     alignContent: 'center',
     color: 'white',
+    justifyContent: 'center',
+  },
+  settings_icon: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  match_case_text: {
+    marginTop:'auto',
+    marginBottom:'auto',
+    textAlign: 'center',
+    verticalAlign: 'middle',
+    alignContent: 'center',
+    color: 'black',
     justifyContent: 'center',
   }
 });
