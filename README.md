@@ -1,6 +1,6 @@
 # Introduction
 
-[GIF]
+![Demo](assets/DemoPhoneCtrlF.gif)
 
 ### Purpose and Usage
 The goal of Phone Ctrl F is to search and highlight text from your phone's camera or image library for easy spotting. Whether that be finding an item on a receipt, an allergy in an ingredients list, or a name in a list, this app will help you easily skip the skimming.
