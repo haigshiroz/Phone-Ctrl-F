@@ -1,16 +1,10 @@
-import { Dimensions, Switch, Text, View, Button, TextInput, StyleSheet, Image, TouchableWithoutFeedback, Keyboard, Pressable, ImageBackground, TouchableOpacity  } from "react-native";
+import { Dimensions, Switch, Text, View, TextInput, StyleSheet, Image, TouchableWithoutFeedback, Keyboard, Pressable, ImageBackground, TouchableOpacity  } from "react-native";
 import { useState, useEffect, useRef } from 'react'
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
-import { CameraView, CameraType, useCameraPermissions, CameraCapturedPicture } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import ActionSheet, {ActionSheetRef} from "react-native-actions-sheet";
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-// import Tesseract from 'tesseract.js';
-// import TextRecognition from '@react-native-ml-kit/text-recognition';
-// import TesseractOcr, { LANG_ENGLISH, LEVEL_WORD } from 'react-native-tesseract-ocr';
-// import MlkitOcr from 'react-native-mlkit-ocr'
-// import {VisionCloudTextRecognizerModelType} from '@react-native-firebase/ml-vision';
 import * as FileSystem from 'expo-file-system';
 import axios from 'axios'
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -21,22 +15,17 @@ export default function CameraScreen() {
   const [ctrlFText, setCtrlFText] = useState<string>('');
   const [caseSensitive, setCaseSensitive] = useState<boolean>(false);
   const toggleSwitch = () => {
-    setCaseSensitive(previousState => !previousState);
-    findWord();
+    const newState = !caseSensitive
+    setCaseSensitive(newState);
+    findWord(undefined, undefined, newState);
   };
-  
-  const [permission, requestPermission] = useCameraPermissions(); 
-  const [photoURI, setPhotoURI] = useState<string>('https://reactnative.dev/img/tiny_logo.png') // No original photo
-  const [photo64, setPhoto64] = useState<string>('') // No original photo
+
+  var defaultPhoto = require('../assets/images/DefaultPhoto.jpg');
+  const [photoURI, setPhotoURI] = useState<string>(defaultPhoto) // No original photo
   const [scanResult, setScanResult] = useState<any>()
   const imageActionSheetRef = useRef<ActionSheetRef>();
   const settingsActionSheetRef = useRef<ActionSheetRef>();
 
-
-  const [top, setTop] = useState();
-  const [left, setLeft] = useState();
-  const [imageWidth, setImageWidth] = useState();
-  const [imageHeight, setImageHeight] = useState();
   const [boxes, setBoxes] = useState<any[]>();
 
   const [loading, setLoading] = useState<Boolean>(false);
@@ -118,7 +107,6 @@ export default function CameraScreen() {
       const base64Image = await FileSystem.readAsStringAsync(png_uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
-      setPhoto64(base64Image);
 
       // Read picture for text
       readPicture(base64Image);
@@ -194,23 +182,41 @@ export default function CameraScreen() {
     } catch (err) {
       console.log(err);
     }
+
+    setLoading(false);
   };
   
 
-  const findWord = async (scannedWordsField?: {field: string, values: string[]}, word?: string) => {        
-    if (ctrlFText === "") {
+  const findWord = async (scannedWordsField?: {field: string, values: string[]}, word?: string, searchCaseSensitive?: boolean) => {        
+    if (loading) {
+      return;
+    }
+
+    console.log("Word = \"" + word + "\"");
+    
+    // word === "" is only true when we purposefully clear the input box
+    if (word === "") {
+      console.log("Trying to search for an empty string");
       setShowHighlight(false);
-      setLoading(false);
       return;
     }
     
-    const scannedWords = scannedWordsField || scanResult // Use setState if argument not passed
+    // Use setState if arguments aren't passed
+    // Needed because setState updates too late
+    const scannedWords = scannedWordsField || scanResult
     const word_to_search = word || ctrlFText
+    const use_case_sensitive = searchCaseSensitive || caseSensitive 
+    
+    if (!word_to_search) {
+      console.log("Trying to search for an invalid string");
+      setShowHighlight(false);
+      return;
+    }
 
-    console.log("Attempting to find " + word_to_search + "...");
+    console.log("Attempting to find \"" + word_to_search + "\"...");
 
     var indxs_of_text: number[] = [];
-    if (caseSensitive) {
+    if (use_case_sensitive) {
       scannedWords["text"].forEach((word: string, index: number) => {
         if (word === word_to_search) {
           indxs_of_text.push(index);
@@ -233,16 +239,6 @@ export default function CameraScreen() {
     } else {
       console.log("Indexes of \"" + word_to_search + "\": " + indxs_of_text);
       setShowHighlight(true);
-      // const left = scannedWords["left"][ind_of_text];
-      // const top = scannedWords["top"][ind_of_text];
-      // const width = scannedWords["width"][ind_of_text];
-      // const height = scannedWords["height"][ind_of_text];
-      // console.log("Left: " + left + ", Top: " + top);
-  
-      // setLeft(left);
-      // setTop(top);
-      // setImageWidth(width);
-      // setImageHeight(height);
 
       const highlight_boxes: any[] = []
       indxs_of_text.forEach((index_of_text: number, index: number) => {
@@ -264,26 +260,6 @@ export default function CameraScreen() {
     setLoading(false);
   }
 
-  // TODO check permisions
-  if (!permission) {
-    // Camera permissions are still loading.
-    return (
-        <View>
-            <Text>Waiting for permission...</Text>
-        </View>
-    );
-  }
-
-  if (!permission.granted) {
-    // Camera permissions are not granted yet.
-    return (
-      <View style={styles.container}>
-        <Text>We need your permission to show the camera</Text>
-        <Button onPress={requestPermission} title="grant permission" />
-      </View>
-    );
-  }
-
   return (
     <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
         <SafeAreaProvider>
@@ -291,20 +267,23 @@ export default function CameraScreen() {
 
               <View style={styles.inputSettingsContainer}>
                 <TextInput 
-                      placeholder="Enter word you'd like to search" 
+                      placeholder="Enter a word you'd like to search for..." 
+                      placeholderTextColor="gray"
                       value={ctrlFText}
                       onChangeText={inputTextChanged}
                       style={styles.input} />
+
+                {ctrlFText.length > 0 && (
+                  <TouchableOpacity onPress={() => {setCtrlFText(""); findWord(undefined, "");}} style={styles.remove_text_icon}>
+                    <Text>x</Text>
+                  </TouchableOpacity>
+                )}
 
                 <TouchableOpacity onPress={openSettingsActionSheet} style={styles.settings_icon}>
                   <Ionicons name="settings-outline" size={24} color="#333" />
                 </TouchableOpacity>
                 
               </View>
-
-
-                {ctrlFText == "" ? <Text style={styles.title}>Please input text.</Text> : <Text style={styles.title}>Searching for {ctrlFText}.</Text>}
-                
                 <View
                   style={styles.imageContainer}>
                   <ImageBackground 
@@ -328,7 +307,7 @@ export default function CameraScreen() {
                             height: newDim.height,
                           },
                         ]}>
-                          <Text style={styles.loading_text}> Loading... </Text>
+                          <Text style={styles.loading_text}> Reading Image... </Text>
                         </View>
                       )}
                       
@@ -396,7 +375,7 @@ export default function CameraScreen() {
                         <Text style={styles.match_case_text}> Match Case? </Text>
                         <Switch 
                           onValueChange={toggleSwitch}
-                           value={caseSensitive}/>
+                          value={caseSensitive}/>
                       </View>
                     </View>
                 </ActionSheet>
@@ -412,7 +391,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     verticalAlign: 'top',
-    borderWidth: 1,
+    // borderWidth: 1,
   },
   container: {
     flex: 1,
@@ -478,6 +457,12 @@ const styles = StyleSheet.create({
     alignContent: 'center',
     color: 'white',
     justifyContent: 'center',
+  },
+  remove_text_icon: {
+    padding: 5,
+    marginRight: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   settings_icon: {
     justifyContent: 'center',
