@@ -14,14 +14,19 @@ const { width, height } = Dimensions.get('window'); // Get screen dimensions
 export default function CameraScreen() {
   const [ctrlFText, setCtrlFText] = useState<string>('');
   const [caseSensitive, setCaseSensitive] = useState<boolean>(false);
-  const toggleSwitch = () => {
+  const toggleCaseSensitive = () => {
     const newState = !caseSensitive
     setCaseSensitive(newState);
-    findWord(undefined, undefined, newState);
+    findWord(undefined, undefined, newState, undefined);
+  };
+  const [useSubstring, setUseSubstring] = useState<boolean>(false);
+  const toggleUseSubstring = () => {
+    const newState = !useSubstring
+    setUseSubstring(newState);
+    findWord(undefined, undefined, undefined, newState);
   };
 
-  var defaultPhoto = require('../assets/images/DefaultPhoto.jpg');
-  const [photoURI, setPhotoURI] = useState<string>(defaultPhoto) // No original photo
+  const [photoURI, setPhotoURI] = useState<string>('https://raw.githubusercontent.com/haigshiroz/Phone-Ctrl-F/refs/heads/main/assets/images/DefaultPhoto.jpg') // No original photo
   const [scanResult, setScanResult] = useState<any>()
   const imageActionSheetRef = useRef<ActionSheetRef>();
   const settingsActionSheetRef = useRef<ActionSheetRef>();
@@ -84,8 +89,6 @@ export default function CameraScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes:  ['images'],
       allowsMultipleSelection: false,
-      // allowsEditing: true, // Needs to be enabled 
-      // aspect: [4, 3],
       quality: 1,
     });
 
@@ -187,7 +190,7 @@ export default function CameraScreen() {
   };
   
 
-  const findWord = async (scannedWordsField?: {field: string, values: string[]}, word?: string, searchCaseSensitive?: boolean) => {        
+  const findWord = async (scannedWordsField?: {field: string, values: string[]}, word?: string, searchCaseSensitive?: boolean, searchUseSubstring?: boolean) => {        
     if (loading) {
       return;
     }
@@ -206,6 +209,12 @@ export default function CameraScreen() {
     const scannedWords = scannedWordsField || scanResult
     const word_to_search = word || ctrlFText
     const use_case_sensitive = searchCaseSensitive || caseSensitive 
+    var use_substring = searchUseSubstring
+    if (use_substring === undefined) {
+      use_substring = useSubstring;
+    }
+
+    console.log("DEBUG: " + use_substring)
     
     if (!word_to_search) {
       console.log("Trying to search for an invalid string");
@@ -218,15 +227,26 @@ export default function CameraScreen() {
     var indxs_of_text: number[] = [];
     if (use_case_sensitive) {
       scannedWords["text"].forEach((word: string, index: number) => {
-        if (word === word_to_search) {
-          indxs_of_text.push(index);
+        if (use_substring) {
+          if (word.includes(word_to_search)) {
+            indxs_of_text.push(index)
+          }
+        } else {
+          if (word === word_to_search) {
+            indxs_of_text.push(index);
+          }
         }
       });
     } else {
       scannedWords["text"].forEach((word: string, index: number) => {
-        if (word.toLowerCase() === word_to_search.toLowerCase()) {
-          indxs_of_text.push(index);
-          console.log(index);
+        if (use_substring) {
+          if (word.toLowerCase().includes(word_to_search.toLowerCase())) {
+            indxs_of_text.push(index);
+          }
+        } else {
+          if (word.toLowerCase() === word_to_search.toLowerCase()) {
+            indxs_of_text.push(index);
+          }
         }
       });
     }
@@ -348,7 +368,7 @@ export default function CameraScreen() {
                   ref={imageActionSheetRef}
                   gestureEnabled>
                     <View style={{
-                      height: 200,
+                      height: 150,
                     }}>
                       <Pressable 
                           onPress={pickImage}
@@ -367,15 +387,19 @@ export default function CameraScreen() {
                 <ActionSheet 
                   ref={settingsActionSheetRef}
                   gestureEnabled>
-                    <View style={{
-                      // height: 200,
-                      paddingBottom: 25,
-                    }}>
+                    <View>
                       <View style={styles.inputSettingsContainer}>
-                        <Text style={styles.match_case_text}> Match Case? </Text>
+                        <Text style={styles.settings_text}> Match Case? </Text>
                         <Switch 
-                          onValueChange={toggleSwitch}
+                          onValueChange={toggleCaseSensitive}
                           value={caseSensitive}/>
+                      </View>
+
+                      <View style={styles.inputSettingsContainer}>
+                        <Text style={styles.settings_text}> Search substrings? </Text>
+                        <Switch 
+                          onValueChange={toggleUseSubstring}
+                          value={useSubstring}/>
                       </View>
                     </View>
                 </ActionSheet>
@@ -468,7 +492,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  match_case_text: {
+  settings_text: {
     marginTop:'auto',
     marginBottom:'auto',
     textAlign: 'center',
