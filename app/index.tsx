@@ -4,7 +4,6 @@ import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import ActionSheet, {ActionSheetRef} from "react-native-actions-sheet";
 import Ionicons from '@expo/vector-icons/Ionicons';
-
 import * as FileSystem from 'expo-file-system';
 import axios from 'axios'
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -35,7 +34,6 @@ export default function CameraScreen() {
 
   const [loading, setLoading] = useState<Boolean>(false);
   const [showHighlight, setShowHighlight] = useState<Boolean>(false);
-
 
   const [originalDim, setOriginalDim] = useState({width: 0, height: 0})
   const [newDim, setNewDim] = useState({width: 0, height: 0})
@@ -415,7 +413,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     verticalAlign: 'top',
-    // borderWidth: 1,
   },
   container: {
     flex: 1,
@@ -445,7 +442,6 @@ const styles = StyleSheet.create({
     margin: 10,
   },
   image: {
-    // flex: 1,
     justifyContent: "center",
     alignItems: "center",
     marginTop: 'auto',
@@ -454,7 +450,6 @@ const styles = StyleSheet.create({
     marginRight:'auto',
   },
   button: {
-    // backgroundColor: "#f194ff",
     backgroundColor: "lightgray",
     alignItems: "center",
     padding: 20,
